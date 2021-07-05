@@ -15,8 +15,9 @@ import cv2
 import sys
 import re
 
-verbose = 0 # set 1 for debug, else 0
+verbose = 0 # set 1 for debug/more information, else 0
 
+# some functions used in the main process ####################################
 def drawBoundingBoxes(imageData, imageOutputPath, inferenceResults, color):
     """Draw bounding boxes on an image.
     imageData: image data in numpy array format
@@ -35,7 +36,7 @@ def drawBoundingBoxes(imageData, imageOutputPath, inferenceResults, color):
         X0 = float(res['X0'])
         Y0 = float(res['Y0'])
         imgHeight, imgWidth, _ = imageData.shape
-        imgHeight = imgHeight - int(imgHeight/15.0)
+        imgHeight = imgHeight - int(imgHeight/15.0) # adjust for the text frame in the figures
         thick = int((imgHeight + imgWidth) // 900)
         if(verbose):print(label,left, top, right, bottom)
         left_c = int((left - X0)/xLength * imgWidth)
@@ -46,7 +47,6 @@ def drawBoundingBoxes(imageData, imageOutputPath, inferenceResults, color):
         
         if(verbose):print(label,left_c, top_c, right_c, bottom_c)
         cv2.rectangle(imageData,(left_c, top_c), (right_c, bottom_c), color, thick)
-        #cv2.rectangle(imageData,(0, imgHeight-int(imgHeight/15.0)), (imgWidth, imgHeight), (255,0,255), thick)
         cv2.putText(imageData, label, (left_c, top_c - 12), 0, 0.5e-3 * imgHeight, color, thick//3)
     #cv2.imwrite(imageOutputPath, imageData)
     return imageData
@@ -56,9 +56,14 @@ def sort_human(l):
     alphanum = lambda key: [convert(c) for c in re.split('([-+]?[0-9]*\.?[0-9]*)', key)]
     l.sort(key=alphanum)
     return l
+##############################################################################
+
+# main starts here: ##########################################################
+# please give path to folder with the tif figure: path
+# please give the filename of the figure for the background: bkg_pic
 
 # Open image file for reading (binary mode)
-path = r'C:\Users\thomas.mettler\OneDrive - Leister Group\Desktop\MOE\SEM\data\20210525_BIB_AA_Wfr8_X15Y12'
+path = r'C:\Users\thomas.mettler\OneDrive - Leister Group\Desktop\MOE\SEM\data\20210525_BIB_AA_Wfr8_X22Y12'
 #path = r'S:\Axetris\20210616_BIB_Telcordia_Innolight_DaHT and TC\DaHT'
 #path = input('Please give the path to the tif files:')
 bkg_pic = '20210526_0_AA_Wfr8_X22Y12_3.19mm_5.00kV_0.10nA_SE_ETD_0.0deg'
@@ -68,7 +73,7 @@ print('Path: ',path)
 stages = ["StageX", "StageY", "StageZ"] # ,'StageR']
 lengths = ["HFW", "VFW"] # ,'StageR']
 
-Nav_count = -1
+Nav_count = -1 # store list position of the background pic
 
 list_of_files = []
 list_of_names = []
@@ -83,23 +88,23 @@ for name in list_of_files:
     if(name[-3:] == 'tif' or file[-3:] == 'jpg'):
         list_of_tifs.append(name)
 
-#print(list_of_tifs)
-#print(list_of_names)
-
+# sort the list so that 1,2, .. and not 1,10, ...
 sort_human(list_of_names)
 #sort_human(list_of_files)
 sort_human(list_of_tifs)
 print('File list: ', list_of_names)
 
-report = ''
+report = '' # string for the report/summary text file
 
+# positions and size of the pictures #########################################
 x_values = np.zeros((len(list_of_tifs)))
 y_values = np.zeros((len(list_of_tifs)))
 z_values = np.zeros((len(list_of_tifs)))
 h_len = np.zeros((len(list_of_tifs)))
 v_len = np.zeros((len(list_of_tifs)))
 
-counter = 0
+# get the information about all the tif figures
+counter = 0 # count the files where information is missing
 for f_x, file_name in enumerate(list_of_tifs):
     a = file_name.find("CCD")
     if(verbose):print(file_name)
@@ -108,7 +113,6 @@ for f_x, file_name in enumerate(list_of_tifs):
         tags = exifread.process_file(f)
         values = []    
         values2 = [] 
-        #print(file_name)
         for tag in tags.keys():
             if tag not in ('JPEGThumbnail', 'TIFFThumbnail', 'Filename', 'EXIF MakerNote'):
                 if(tag == 'Image Tag 0x877A'):
@@ -139,8 +143,6 @@ for f_x, file_name in enumerate(list_of_tifs):
                         Nav_count = f_x - counter
     
         report += file_name+'\n'
-        #print(file_name)
-        #print('Stage positions:')
         x_values[f_x] = values[0]
         y_values[f_x] = values[1]
         z_values[f_x] = values[2]
@@ -158,7 +160,7 @@ for f_x, file_name in enumerate(list_of_tifs):
     else:
         if(verbose):print('CCD side view picture')
         counter+=1
-
+##############################################################################
 
 # draw rectangles in chosen picture ##########################################
 
